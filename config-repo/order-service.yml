@@ -1,0 +1,3 @@
+order:
+  timeoutSeconds: 5
+  retryTimes: 3

@@ -1,0 +1,6 @@
+server:
+  tomcat:
+    threads:
+      max: 200
+
+greeting: "Hello from Config Server for user-service"
