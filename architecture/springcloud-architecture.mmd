@@ -1,0 +1,219 @@
+%% 完整 Spring Cloud 架构图（生产参考）
+flowchart LR
+
+  %% =========================
+  %% 外部接入区
+  %% =========================
+  subgraph Z1["A. Client 区（低信任）"]
+    C1["Web/H5"]
+    C2["Mobile App"]
+    C3["第三方系统"]
+  end
+
+  subgraph Z2["B. DMZ 边界接入区（中低信任）"]
+    D1["CDN"]
+    D2["WAF / Anti-DDoS"]
+    D3["SLB / ALB"]
+    D4["Ingress Controller"]
+    D5["Spring Cloud Gateway 集群"]
+  end
+
+  %% =========================
+  %% 业务计算区
+  %% =========================
+  subgraph Z3["C. 业务计算区（K8s/VM，核心）"]
+    A1["Auth Service"]
+    S1["User Service"]
+    S2["Order Service"]
+    S3["Stock Service"]
+    S4["Pay Service"]
+    S5["Notify Service"]
+  end
+
+  %% =========================
+  %% 治理控制区
+  %% =========================
+  subgraph Z4["D. 治理与控制面"]
+    G1["Nacos Registry 集群"]
+    G2["Nacos Config 集群"]
+    G3["Sentinel Dashboard/Rule"]
+    G4["Spring Cloud LoadBalancer"]
+    G5["Seata TC"]
+    G6["Spring Cloud Bus"]
+  end
+
+  %% =========================
+  %% 数据与中间件区
+  %% =========================
+  subgraph Z5["E. 数据与中间件区（高信任）"]
+    M1["Redis Cluster"]
+    M2["MySQL Primary"]
+    M3["MySQL Replica"]
+    M4["Kafka / RabbitMQ"]
+    M5["Elasticsearch"]
+    M6["Object Storage"]
+  end
+
+  %% =========================
+  %% 安全基础设施区
+  %% =========================
+  subgraph Z6["F. 安全基础设施区（高信任）"]
+    X1["IdP / OAuth2 / OIDC"]
+    X2["KMS / Vault"]
+    X3["CA / Cert Rotation"]
+    X4["SIEM / Audit Log"]
+  end
+
+  %% =========================
+  %% 可观测与运维区
+  %% =========================
+  subgraph Z7["G. 可观测与运维区（管理面）"]
+    O1["Micrometer / Actuator"]
+    O2["Prometheus"]
+    O3["Grafana"]
+    O4["Alertmanager"]
+    O5["Fluent Bit / Filebeat"]
+    O6["ELK / Loki"]
+    O7["OpenTelemetry / Sleuth"]
+    O8["Jaeger / Zipkin / SkyWalking"]
+    O9["Git Repo"]
+    O10["CI/CD Pipeline"]
+    O11["Image Registry"]
+    O12["GitOps / Deploy Controller"]
+    O13["Bastion / Ops Access"]
+  end
+
+  %% =========================
+  %% 主调用链（北南向）
+  %% =========================
+  C1 --> D1
+  C2 --> D1
+  C3 --> D2
+  D1 --> D2 --> D3 --> D4 --> D5
+  D5 --> A1
+  D5 --> S1
+  D5 --> S2
+  D5 --> S3
+  D5 --> S4
+
+  %% =========================
+  %% 认证与安全链路
+  %% =========================
+  D5 -. token introspection .-> X1
+  A1 --> X1
+  G2 -. encrypted config .-> X2
+  X3 -. cert provision .-> D3
+  X3 -. cert provision .-> D4
+  X3 -. cert provision .-> D5
+  O6 --> X4
+
+  %% =========================
+  %% 注册发现 / 配置 / 治理
+  %% =========================
+  D5 --> G1
+  D5 --> G2
+  A1 --> G1
+  S1 --> G1
+  S2 --> G1
+  S3 --> G1
+  S4 --> G1
+  S5 --> G1
+  A1 --> G2
+  S1 --> G2
+  S2 --> G2
+  S3 --> G2
+  S4 --> G2
+  S5 --> G2
+  G2 --> G6
+  G6 --> A1
+  G6 --> S1
+  G6 --> S2
+  G6 --> S3
+  G6 --> S4
+  G6 --> S5
+
+  A1 --> G3
+  S1 --> G3
+  S2 --> G3
+  S3 --> G3
+  S4 --> G3
+  S5 --> G3
+
+  %% 服务间调用（东西向）
+  S2 --> G4 --> S3
+  S2 --> G4 --> S4
+  S1 --> G4 --> S5
+
+  %% 分布式事务
+  S2 --> G5
+  S3 --> G5
+  S4 --> G5
+
+  %% =========================
+  %% 数据链路
+  %% =========================
+  S1 --> M1
+  S2 --> M1
+  S3 --> M1
+  S4 --> M1
+  S5 --> M1
+
+  S1 --> M2
+  S2 --> M2
+  S3 --> M2
+  S4 --> M2
+  S5 --> M2
+  M2 --> M3
+
+  S2 --> M4
+  M4 --> S5
+  S5 --> M5
+  S5 --> M6
+
+  %% =========================
+  %% 可观测链路
+  %% =========================
+  A1 --> O1
+  S1 --> O1
+  S2 --> O1
+  S3 --> O1
+  S4 --> O1
+  S5 --> O1
+  O1 --> O2 --> O3
+  O2 --> O4
+
+  A1 --> O5
+  S1 --> O5
+  S2 --> O5
+  S3 --> O5
+  S4 --> O5
+  S5 --> O5
+  O5 --> O6
+
+  A1 --> O7
+  S1 --> O7
+  S2 --> O7
+  S3 --> O7
+  S4 --> O7
+  S5 --> O7
+  O7 --> O8
+
+  %% =========================
+  %% CI/CD 与部署链路
+  %% =========================
+  O9 --> O10 --> O11 --> O12
+  O12 --> D4
+  O13 --> A1
+
+  %% =========================
+  %% 样式（突出安全和治理）
+  %% =========================
+  classDef security fill:#fff4f4,stroke:#c62828,stroke-width:1px;
+  classDef governance fill:#f3f7ff,stroke:#1565c0,stroke-width:1px;
+  classDef data fill:#f4fff4,stroke:#2e7d32,stroke-width:1px;
+  classDef observe fill:#fffde7,stroke:#f9a825,stroke-width:1px;
+
+  class X1,X2,X3,X4 security;
+  class G1,G2,G3,G4,G5,G6 governance;
+  class M1,M2,M3,M4,M5,M6 data;
+  class O1,O2,O3,O4,O5,O6,O7,O8 observe;
