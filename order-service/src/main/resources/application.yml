@@ -1,16 +1,14 @@
 server:
-  port: 8888
+  port: 8082
 
 spring:
+  config:
+    import: optional:configserver:http://localhost:8888
   application:
-    name: config-server
-  profiles:
-    active: native
+    name: order-service
   cloud:
     config:
-      server:
-        native:
-          search-locations: file:/workspace/config-repo
+      fail-fast: false
 
 eureka:
   client:
